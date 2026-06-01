@@ -1,8 +1,4 @@
-"""
-author:Wenquan Yang
-time:2020/6/11 1:24
-intro: 磁盘格式化部分
-"""
+
 from models import *
 from file_pointer import file_func
 from utils import *
