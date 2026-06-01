@@ -17,7 +17,7 @@ from models import INode
 from models import CatalogBlock
 from file_pointer import FilePointer
 from user import User
-
+from initialize_disk import format_disk
 
 class FileSystem:
     """
@@ -102,24 +102,17 @@ class FileSystem:
         return False
 
     def chdir(self, args):
-        """切换目录，支持相对路径、绝对路径，返回是否成功"""
-        if not args or args == '.':
-            return True
-        # 处理绝对路径：以 '/' 开头时先回到根目录
         if args.startswith('/'):
-            if not self.ch_sig_dir('~'):
-                return False
-            args = args[1:]  # 去掉开头的 '/'
-        # 逐级切换
-        parts = [p for p in args.split('/') if p and p != '.']
-        for part in parts:
-            if part == '..':
-                if not self.ch_sig_dir('..'):
-                    return False
-            else:
-                if not self.ch_sig_dir(part):
-                    return False
-        return True
+            # 绝对路径：先切换到根目录
+            self.pwd_inode = self.base_inode
+            self.path = ['base']
+            args = args[1:]  # 去掉开头的 /
+        name_list = args.split('/')
+        for name in name_list:
+            if name == '':
+                continue
+            if not self.ch_sig_dir(name):
+                break
 
     def _get_password_file_inode_id(self):
         base_cat = self.load_base_obj()
@@ -401,8 +394,39 @@ class FileSystem:
 
     def clear(self):
         os.system('cls')
+    
+    def format(self):
+        """
+        格式化当前磁盘，清除所有数据，恢复初始状态
+        """
+        confirm = input("格式化将清除所有数据，是否继续？(y/N): ")
+        if confirm.lower() != 'y':
+            print("格式化取消")
+            return
 
+        # 调用初始化函数，传入当前文件指针
+        format_disk(self.fp)
 
+        # 重置文件系统内部状态
+        self.sp = self.load_disk()
+        self.base_inode = self.get_base_inode()
+        self.pwd_inode = self.base_inode
+        self.path = ['base']
+        self.current_user_id = ROOT_ID
+        self.current_user_name = 'root'
+
+        self.clear()
+        print("磁盘已格式化，请重新登录")
+        self.login()
+
+        if self.current_user_name != ROOT:
+            self.chdir(f'home/{self.current_user_name}')
+        else:
+            self.chdir(f'{ROOT}')
+    
+
+    
+     
 def file_system_func(func):
     """
     文件系统的装饰器包装上下文管理器，简化实际编写的时候的代码不需要使用with直接在函数上加个装饰器即可
