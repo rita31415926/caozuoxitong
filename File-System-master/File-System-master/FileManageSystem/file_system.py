@@ -102,15 +102,24 @@ class FileSystem:
         return False
 
     def chdir(self, args):
-        """
-        切换目录
-        :param args:
-        :return:
-        """
-        name_list = args.split('/')
-        for name in name_list:
-            if not self.ch_sig_dir(name):
-                break
+        """切换目录，支持相对路径、绝对路径，返回是否成功"""
+        if not args or args == '.':
+            return True
+        # 处理绝对路径：以 '/' 开头时先回到根目录
+        if args.startswith('/'):
+            if not self.ch_sig_dir('~'):
+                return False
+            args = args[1:]  # 去掉开头的 '/'
+        # 逐级切换
+        parts = [p for p in args.split('/') if p and p != '.']
+        for part in parts:
+            if part == '..':
+                if not self.ch_sig_dir('..'):
+                    return False
+            else:
+                if not self.ch_sig_dir(part):
+                    return False
+        return True
 
     def _get_password_file_inode_id(self):
         base_cat = self.load_base_obj()
