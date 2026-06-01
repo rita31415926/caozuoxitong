@@ -1,15 +1,29 @@
-"""
-author:Wenquan Yang
-time:2020/6/11 1:24
-intro: 磁盘格式化部分
-"""
+# initialize_disk.py
+
 from models import *
-from file_pointer import file_func
+from file_pointer import file_func, FilePointer
 from utils import *
 
 
-@file_func('wb')
-def initialization(fp):
+def _do_initialization(fp):
+    """实际的初始化逻辑，使用传入的文件指针 fp"""
+    
+    # ---- 定义内部辅助函数 ----
+    def new_dir(sp, base_dir, name, parent_inode_id):
+        inode_id = sp.get_free_inode_id(fp)
+        inode = INode(inode_id, ROOT_ID)
+        base_dir.add_new_cat(name=name, inode_id=inode_id)
+        dir_write_back(sp, inode, bytes(CatalogBlock(name, parent_inode_id)))
+        inode.write_back(fp)
+
+    def dir_write_back(sp, inode, dir_b):
+        for block in split_serializer(dir_b):
+            block_id = sp.get_data_block_id(fp)
+            inode.add_block_id(block_id)
+            fp.seek((block_id + DATA_BLOCK_START_ID) * BLOCK_SIZE)
+            fp.write(block)
+
+    # ---- 正式开始初始化 ----
     # 超级块写入
     sp = SuperBlock()
 
@@ -39,16 +53,16 @@ def initialization(fp):
         start += FREE_BLOCK_CNT
         tmp -= FREE_BLOCK_CNT
 
-    # 初始化一个根目录    base_inode and base_dir
+    # 初始化根目录
     inode_id = sp.get_free_inode_id(fp)
     inode = INode(inode_id, ROOT_ID)
     base_dir = CatalogBlock(BASE_NAME)
 
     for file_name in INIT_DIRS:
-        new_dir(sp, fp, base_dir, file_name, inode_id)
+        new_dir(sp, base_dir, file_name, inode_id)
 
     # 写回根目录
-    dir_write_back(sp, inode, bytes(base_dir), fp)
+    dir_write_back(sp, inode, bytes(base_dir))
     inode.write_back(fp)
 
     # 写入超级块
@@ -56,20 +70,16 @@ def initialization(fp):
     sp.write_back(fp)
 
 
-def new_dir(sp, fp, base_dir, name, parent_inode_id):
-    inode_id = sp.get_free_inode_id(fp)
-    inode = INode(inode_id, ROOT_ID)
-    base_dir.add_new_cat(name=name, inode_id=inode_id)
-    dir_write_back(sp, inode, bytes(CatalogBlock(name, parent_inode_id)), fp)
-    inode.write_back(fp)
+@file_func('wb')
+def initialization(fp):
+    """保留原有的装饰器版本，供独立运行脚本使用"""
+    _do_initialization(fp)
 
 
-def dir_write_back(sp: SuperBlock, inode: INode, dir_b: bytes, fp):
-    for block in split_serializer(dir_b):
-        block_id = sp.get_data_block_id(fp)
-        inode.add_block_id(block_id)
-        fp.seek((block_id + DATA_BLOCK_START_ID) * BLOCK_SIZE)
-        fp.write(block)
+# 也可以提供一个直接接受文件指针的公开函数，供文件系统调用
+def format_disk(fp):
+    """供文件系统调用的格式化接口"""
+    _do_initialization(fp)
 
 
 if __name__ == '__main__':
