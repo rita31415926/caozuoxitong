@@ -1,8 +1,25 @@
-"""
-author:Wenquan Yang
-time:2020/6/9 1:36
-content:配置文件
-"""
+# 状态栏颜色
+BAR_TIME_F = "33"
+BAR_TIME_B = "40"
+BAR_USER_F = "36"
+BAR_USER_B = "40"
+BAR_VERSION_F = "31"
+BAR_VERSION_B = "47"
+BAR_PATH_F = "37"
+BAR_PATH_B = "44"
+BAR_PROMPT_F = "32"
+BAR_PROMPT_B = "40"
+
+# 系统信息颜色
+SYS_INFO_F = "36"
+SYS_INFO_B = "40"
+
+# 登录界面颜色
+LOGIN_TITLE_F = "33"
+LOGIN_LABEL_F = "32"
+
+
+
 
 BLOCK_SIZE = 512  # 磁盘块大小Bytes
 BLOCK_NUM = 2560  # 磁盘块总数量
@@ -34,14 +51,6 @@ ROOT = 'root'
 INIT_DIRS = ['root', 'home', 'etc']
 
 VERSION = "V 1.2"
-
-LOGO = """    
-    ____   ______ _____
-   / __ \ / ____// ___/
-  / /_/ // /_    \__ \\
- / ____// __/   ___/ /
-/_/    /_/     /____/
-                       """
 
 # color
 FILE_COLOR_F = "37"  # 文件名前景色

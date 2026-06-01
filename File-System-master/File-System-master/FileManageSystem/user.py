@@ -1,7 +1,3 @@
-"""
-author:Wenquan Yang
-time:2020/6/16 0:35
-"""
 import hashlib
 
 
