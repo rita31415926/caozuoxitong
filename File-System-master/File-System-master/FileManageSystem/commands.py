@@ -1,11 +1,18 @@
+"""
+author:Wenquan Yang
+time:2020/6/14 20:18
+intro:命令模块
+"""
 import pickle
 from threading import Thread
 from config import *
 from utils import check_auth
+from utils import color
 from utils import line
 from file_system import FileSystem
 from file_ui import TextEdit
-from utils import color
+
+
 def useradd(fs: FileSystem, *args):
     """
     添加用户，并将用户目录挂载到base/home/下
@@ -154,64 +161,102 @@ def cd(fs: FileSystem, *args: str):
     else:
         fs.chdir(args[0])
 
-
 def cp(fs: FileSystem, *args):
-    """
-    复制文件/目录参数-r
-    :param fs:
-    :param args:
-    :return:
-    """
-    if args[0] == '-h':
-        print("""
-        复制文件
-            cp xx/xx/src_filename xx/xx/tgt_dir
-            复制文件到其他目录
-            支持跨目录层级调用
-            仅支持复制文件
-        """)
+    import os, pickle
+    if args and args[0] == '-h':
+        print("cp src_path tgt_dir_path")
         return
-
     if args[0] == '-r':
         path_src = args[1]
         path_tgt = args[2]
+        print("递归复制未实现")
     else:
         path_src = args[0]
         path_tgt = args[1]
-        name = path_src.split('/')[-1]  # 取出文件名
-        cnt1 = len(path_src.split('/')) - 1  # 第一个目录的深度
-        cnt2 = len(path_tgt.split('/'))  # 第二个目录的深度
-        text_copy = ""  # 文件内容
-        cd(fs, '/'.join(path_src.split('/')[:-1]))
-        pwd_cat = fs.load_pwd_obj()
-        flag = pwd_cat.is_exist_son_files(name)
-        if flag == -1:
-            print("{} 文件不存在".format(name))
-            cd(fs, '/'.join(['..'] * cnt1))
-            return
-        else:
-            if flag == FILE_TYPE:
-                inode_io = pwd_cat.son_files[name]
-                inode = fs.get_inode(inode_id=inode_io)
-                flag2, text = fs.load_files_block(inode)
-                if flag2:
-                    text_copy = text  # 传递内容
-            if flag == DIR_TYPE:
-                print("不能复制文件夹")
-                cd(fs, '/'.join(['..'] * cnt1))
-                return
 
-        cd(fs, '/'.join(['..'] * cnt1))
-        # 增加到现在的目录下
-        cd(fs, '/'.join(path_tgt.split('/')))
-        touch(fs, name)
-        pwd_cat_new = fs.load_pwd_obj()
-        new_inode_io = pwd_cat_new.son_files[name]
-        new_inode = fs.get_inode(inode_id=new_inode_io)
-        fs.write_back(new_inode, pickle.dumps(text_copy))
-        new_inode.write_back(fs.fp)
-        cd(fs, '/'.join(['..'] * cnt2))
+    # 保存原始路径（相对于根，去掉 base/）
+    original = fs.pwd()
+    # 转换为相对于根目录的路径（去掉开头的 "base/"）
+    if original.startswith('base/'):
+        rel_original = original[5:]   # 例如 "base/root" -> "root"
+    else:
+        rel_original = original
+    print(f"[DEBUG] 原始目录: {original}, 相对根路径: {rel_original}")
 
+    # 分离源路径
+    src_dir, src_name = os.path.split(path_src)
+    if not src_dir:
+        src_dir = '.'
+
+    # 切换到源目录
+    if not fs.chdir(src_dir):
+        print(f"无法切换到源目录: {src_dir}")
+        # 恢复原始目录
+        fs.chdir("~")
+        fs.chdir(rel_original)
+        return
+    print(f"[DEBUG] 已切换到源目录: {fs.pwd()}")
+
+    # 检查源文件
+    pwd_cat = fs.load_pwd_obj()
+    file_type = pwd_cat.is_exist_son_files(src_name)
+    if file_type == -1:
+        print(f"源文件不存在: {src_name}")
+        fs.chdir("~")
+        fs.chdir(rel_original)
+        return
+    if file_type != 0:
+        print(f"源路径不是普通文件: {src_name}")
+        fs.chdir("~")
+        fs.chdir(rel_original)
+        return
+
+    # 读取内容
+    inode_id = pwd_cat.son_files[src_name]
+    src_inode = fs.get_inode(inode_id)
+    ok, content = fs.load_files_block(src_inode)
+    if not ok:
+        print("无法读取源文件（权限不足）")
+        fs.chdir("~")
+        fs.chdir(rel_original)
+        return
+
+    # 回到原始目录（根 + 相对路径）
+    if not fs.chdir("~"):
+        print("无法回到根目录")
+        return
+    if not fs.chdir(rel_original):
+        print(f"无法回到原始目录: {rel_original}")
+        return
+    print(f"[DEBUG] 已回到原始目录: {fs.pwd()}")
+
+    # 切换到目标目录
+    if not fs.chdir(path_tgt):
+        print(f"目标目录不存在: {path_tgt}")
+        return
+    print(f"[DEBUG] 已切换到目标目录: {fs.pwd()}")
+
+    # 检查目标目录中是否已有同名文件
+    pwd_cat_tgt = fs.load_pwd_obj()
+    if pwd_cat_tgt.is_exist_son_files(src_name) != -1:
+        print(f"目标目录已存在同名文件: {src_name}")
+        fs.chdir("~")
+        fs.chdir(rel_original)
+        return
+
+    # 创建新文件并写入内容
+    new_inode = fs.get_new_inode(user_id=fs.current_user_id)
+    new_inode.target_type = 0
+    pwd_cat_tgt.add_new_file(src_name, new_inode.i_no)
+    fs.write_back(fs.pwd_inode, bytes(pwd_cat_tgt))
+    new_inode.write_back(fs.fp)
+    fs.write_back(new_inode, pickle.dumps(content))
+    new_inode.write_back(fs.fp)
+
+    # 恢复原始目录
+    fs.chdir("~")
+    fs.chdir(rel_original)
+    print(f"复制成功: {src_name} -> {path_tgt}")
 
 def mv(fs: FileSystem, *args):
     """
@@ -599,7 +644,16 @@ def main(*args):
     :return:
     """
     print("""
-    支持的命令如下：
+    这是一个模拟的文件系统
+    fms.pfs用于模拟磁盘，会在系统运行的时候加载系统关闭时关闭
+    系统中的信息和用户文件都存放于fms.pfs中，系统运行时进行加载
+    基于最基本linux中的inode---dir_block---inode---data_block结构
+    包含基本的block有superblock，inode，datablock(dirblock,fileblock)
+    不同于linux中使用bitmap进行空间分配，本系统使用成组链接法进行分配
+    
+    支持多用户多级目录，以及用户访问权限划分
+    
+    支持的命令有 (通过cmd -h 查看使用 例如 (useradd -h,su -h,tree -h,))
         添加用户 useradd
         切换用户 su username
         当前路径 pwd

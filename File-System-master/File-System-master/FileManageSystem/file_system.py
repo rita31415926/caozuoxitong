@@ -1,4 +1,8 @@
-
+"""
+author:Wenquan Yang
+time:2020/6/12 22:30
+intro: 文件系统
+"""
 import os
 import getpass
 import pickle
@@ -6,6 +10,7 @@ from config import *
 from utils import form_serializer
 from utils import split_serializer
 from utils import check_auth
+from utils import logo
 from utils import color
 from models import SuperBlock
 from models import INode
@@ -97,15 +102,24 @@ class FileSystem:
         return False
 
     def chdir(self, args):
-        """
-        切换目录
-        :param args:
-        :return:
-        """
-        name_list = args.split('/')
-        for name in name_list:
-            if not self.ch_sig_dir(name):
-                break
+        """切换目录，支持相对路径、绝对路径，返回是否成功"""
+        if not args or args == '.':
+            return True
+        # 处理绝对路径：以 '/' 开头时先回到根目录
+        if args.startswith('/'):
+            if not self.ch_sig_dir('~'):
+                return False
+            args = args[1:]  # 去掉开头的 '/'
+        # 逐级切换
+        parts = [p for p in args.split('/') if p and p != '.']
+        for part in parts:
+            if part == '..':
+                if not self.ch_sig_dir('..'):
+                    return False
+            else:
+                if not self.ch_sig_dir(part):
+                    return False
+        return True
 
     def _get_password_file_inode_id(self):
         base_cat = self.load_base_obj()
@@ -128,7 +142,7 @@ class FileSystem:
         return new_inode.i_no
 
     def _init_root_user(self):
-        print(color("系统初始状态,创建root用户请设置密码:", "33", "40"))
+        print("系统初始状态,创建root用户请设置密码:")
         flag = 3
         password1 = 'admin'
         while flag > 0:
@@ -152,8 +166,7 @@ class FileSystem:
         :return:
         """
         self.clear()
-        print()  # 空行
-        print("======用户登录======")
+        print("=用户登录=")
         password_file_inode_id = self._get_password_file_inode_id()
         if not password_file_inode_id:
             password_file_inode_id = self._init_root_user()
@@ -232,7 +245,6 @@ class FileSystem:
         password_list.append(User(username, password, self.user_counts))
         self.user_counts += 1
         self.write_back(password_inode, pickle.dumps(password_list))
-        password_inode.write_back(self.fp)  # 关键：写回 inode 元数据
         return username, self.user_counts - 1
 
     def get_base_dir_inode_id(self):
@@ -383,9 +395,8 @@ class FileSystem:
         self.show()
 
     def show(self):
-        print()  # 新增：空行分隔，避免前面的方框
-        welcome_msg = f"Welcome, {self.current_user_name}!"
-        print(color(welcome_msg, "31", "107"))  # 红色字 + 米白色背景
+        print("Welcome to the PFS")
+        logo()
         self.sp.show_sp_info()
 
     def clear(self):

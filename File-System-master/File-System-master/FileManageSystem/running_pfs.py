@@ -1,4 +1,8 @@
-
+"""
+author:Wenquan Yang
+time:2020/6/12 22:50
+intro:文件系统实际运行部分
+"""
 import commands
 from utils import bar
 from file_system import FileSystem
@@ -21,6 +25,7 @@ def running_pfs(fs: FileSystem):
 
 def main():
     running_pfs()
+
 
 if __name__ == '__main__':
     main()

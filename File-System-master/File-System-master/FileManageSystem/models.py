@@ -1,11 +1,15 @@
-
+"""
+author:Wenquan Yang
+time:2020/6/9 1:35
+intro:数据结构定义
+"""
 
 import pickle
 import time
 from config import *
 from utils import split_serializer
 
-from utils import color
+
 class Block:
 
     def __bytes__(self):
@@ -56,10 +60,8 @@ class SuperBlock(Block):
         self.base_dir_inode_id = -1  # 根目录的inode_id
 
     def show_sp_info(self):
-        inode_info = f"INODE使用情况：{self.inode_unused_cnt} / {self.inode_cnt}"
-        block_info = f"DATABLOCK使用情况：{self.block_unused_cnt} / {self.block_cnt}"
-        print(f"\33[31;107m{inode_info}\33[0m")
-        print(f"\33[31;107m{block_info}\33[0m")
+        print("INODE使用情况：", self.inode_unused_cnt, '/', self.inode_cnt)
+        print("DATABLOCK使用情况：", self.block_unused_cnt, '/', self.block_cnt)
 
     def write_back(self, fp):
         fp.seek(0)
