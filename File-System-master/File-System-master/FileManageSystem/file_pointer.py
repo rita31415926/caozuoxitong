@@ -1,7 +1,3 @@
-"""
-author:Wenquan Yang
-time:2020/6/11 0:09
-"""
 from config import *
 
 

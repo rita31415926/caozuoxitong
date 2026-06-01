@@ -1,4 +1,8 @@
-
+"""
+author:Wenquan Yang
+time:2020/6/12 22:30
+intro: 文件系统
+"""
 import os
 import getpass
 import pickle
@@ -6,13 +10,14 @@ from config import *
 from utils import form_serializer
 from utils import split_serializer
 from utils import check_auth
+from utils import logo
 from utils import color
 from models import SuperBlock
 from models import INode
 from models import CatalogBlock
 from file_pointer import FilePointer
 from user import User
-
+from initialize_disk import format_disk
 
 class FileSystem:
     """
@@ -128,7 +133,7 @@ class FileSystem:
         return new_inode.i_no
 
     def _init_root_user(self):
-        print(color("系统初始状态,创建root用户请设置密码:", "33", "40"))
+        print("系统初始状态,创建root用户请设置密码:")
         flag = 3
         password1 = 'admin'
         while flag > 0:
@@ -152,8 +157,7 @@ class FileSystem:
         :return:
         """
         self.clear()
-        print()  # 空行
-        print("======用户登录======")
+        print("=用户登录=")
         password_file_inode_id = self._get_password_file_inode_id()
         if not password_file_inode_id:
             password_file_inode_id = self._init_root_user()
@@ -232,7 +236,6 @@ class FileSystem:
         password_list.append(User(username, password, self.user_counts))
         self.user_counts += 1
         self.write_back(password_inode, pickle.dumps(password_list))
-        password_inode.write_back(self.fp)  # 关键：写回 inode 元数据
         return username, self.user_counts - 1
 
     def get_base_dir_inode_id(self):
@@ -383,15 +386,45 @@ class FileSystem:
         self.show()
 
     def show(self):
-        print()  # 新增：空行分隔，避免前面的方框
-        welcome_msg = f"Welcome, {self.current_user_name}!"
-        print(color(welcome_msg, "31", "107"))  # 红色字 + 米白色背景
+        print("Welcome to the PFS")
+        logo()
         self.sp.show_sp_info()
 
     def clear(self):
         os.system('cls')
+    
+    def format(self):
+        """
+        格式化当前磁盘，清除所有数据，恢复初始状态
+        """
+        confirm = input("格式化将清除所有数据，是否继续？(y/N): ")
+        if confirm.lower() != 'y':
+            print("格式化取消")
+            return
 
+        # 调用初始化函数，传入当前文件指针
+        format_disk(self.fp)
 
+        # 重置文件系统内部状态
+        self.sp = self.load_disk()
+        self.base_inode = self.get_base_inode()
+        self.pwd_inode = self.base_inode
+        self.path = ['base']
+        self.current_user_id = ROOT_ID
+        self.current_user_name = 'root'
+
+        self.clear()
+        print("磁盘已格式化，请重新登录")
+        self.login()
+
+        if self.current_user_name != ROOT:
+            self.chdir(f'home/{self.current_user_name}')
+        else:
+            self.chdir(f'{ROOT}')
+    
+
+    
+     
 def file_system_func(func):
     """
     文件系统的装饰器包装上下文管理器，简化实际编写的时候的代码不需要使用with直接在函数上加个装饰器即可
